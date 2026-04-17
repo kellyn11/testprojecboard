@@ -13,7 +13,7 @@ jobs:
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
 
-      - name: Check Pandoc
+      - name: Convert DOCX
         run: pandoc input/stories.docx -t markdown -o output/stories.md
 
       - name: Commit output
