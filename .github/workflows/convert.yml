@@ -16,10 +16,5 @@ jobs:
       - name: Convert DOCX
         run: pandoc input/stories.docx -t markdown -o output/stories.md
 
-      - name: Commit output
-        run: |
-          git config user.name github-actions
-          git config user.email actions@github.com
-          git add output/stories.md
-          git commit -m "Generated markdown" || echo "No changes"
-          git push
+      - name: Show output files
+        run: ls -R
