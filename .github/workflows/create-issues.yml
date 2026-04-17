@@ -1,0 +1,91 @@
+name: Create Issues from Markdown
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth status
+
+      - name: Create issues from stories.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FILE="output/stories.md"
+
+          if [ ! -f "$FILE" ]; then
+            echo "Missing $FILE"
+            exit 1
+          fi
+
+          awk '
+            BEGIN { RS=""; FS="\n" }
+            /^# Story [0-9]+:/ {
+              title=$1
+              sub(/^# Story [0-9]+: /, "", title)
+
+              body=""
+              for (i=2; i<=NF; i++) {
+                body = body $i "\n"
+              }
+
+              print "TITLE::" title
+              print "BODY::" body
+              print "END_STORY::"
+            }
+          ' "$FILE" > /tmp/parsed_stories.txt
+
+          current_title=""
+          current_body=""
+
+          while IFS= read -r line; do
+            if [[ "$line" == TITLE::* ]]; then
+              current_title="${line#TITLE::}"
+              current_body=""
+            elif [[ "$line" == BODY::* ]]; then
+              current_body="${line#BODY::}"
+            elif [[ "$line" == END_STORY::* ]]; then
+              if [ -n "$current_title" ]; then
+                existing=$(gh issue list \
+                  --repo "$REPO" \
+                  --search "$current_title in:title" \
+                  --json title \
+                  --jq ".[] | select(.title == \"$current_title\") | .title" || true)
+
+                if [ -n "$existing" ]; then
+                  echo "Skipping existing issue: $current_title"
+                else
+                  echo "Creating issue: $current_title"
+                  gh issue create \
+                    --repo "$REPO" \
+                    --title "$current_title" \
+                    --body "$current_body"
+                fi
+              fi
+            else
+              if [ -n "$current_body" ]; then
+                current_body="${current_body}"$'\n'"$line"
+              fi
+            fi
+          done < /tmp/parsed_stories.txt
