@@ -1,28 +1,118 @@
-name: Convert DOCX to Markdown
+name: Create Issues + Add to Project Board
 
 on:
   workflow_dispatch:
 
 jobs:
-  convert:
+  create-issues:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Pandoc
-        run: sudo apt-get update && sudo apt-get install -y pandoc
-
-      - name: Convert DOCX
-        run: pandoc input/stories.docx -t markdown -o output/stories.md
-
-      - name: Commit output
+      - name: Install GitHub CLI
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add output/stories.md
-          git commit -m "Add converted markdown" || echo "No changes to commit"
-          git push
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: gh auth status
+
+      - name: Create issues from markdown table and add to project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          REPO: ${{ github.repository }}
+          OWNER: kellyn11
+          PROJECT_NUMBER: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FILE="output/stories.md"
+
+          if [ ! -f "$FILE" ]; then
+            echo "Missing $FILE"
+            exit 1
+          fi
+
+          current_section=""
+
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            trimmed="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+            # Detect section heading
+            if [[ "$trimmed" =~ ^[0-9]+\.[0-9]+[[:space:]]+ ]]; then
+              current_section="$trimmed"
+              echo "Section: $current_section"
+              continue
+            fi
+
+            # Detect markdown table row
+            if [[ "$trimmed" =~ ^\|[[:space:]]*[0-9]+[[:space:]]*\| ]]; then
+
+              row="$(echo "$trimmed" | sed 's/^|//;s/|$//')"
+
+              sn="$(echo "$row" | cut -d'|' -f1 | xargs)"
+              story="$(echo "$row" | cut -d'|' -f2 | xargs)"
+              ac="$(echo "$row" | cut -d'|' -f3- | sed 's/^ *//;s/ *$//')"
+
+              # Skip header rows
+              if [[ "$sn" == "SN" || "$sn" == "---" || -z "$story" ]]; then
+                continue
+              fi
+
+              short_title="$(echo "$story" | sed -E \
+                's/^As an? [^,]+, I want to //; \
+                 s/^As an? [^,]+, I can //; \
+                 s/ so that .*//; \
+                 s/\.$//')"
+
+              title="US${sn} - $short_title"
+
+              body=$(cat <<EOF
+**Section:** $current_section
+
+**User Story**
+$story
+
+**Acceptance Criteria**
+$ac
+EOF
+)
+
+              existing_url="$(gh issue list \
+                --repo "$REPO" \
+                --state all \
+                --search "\"US${sn} -\" in:title" \
+                --json title,url \
+                --jq ".[] | select(.title | startswith(\"US${sn} -\")) | .url" \
+                | head -n 1 || true)"
+
+              if [ -n "$existing_url" ]; then
+                echo "Issue already exists: $title"
+                issue_url="$existing_url"
+              else
+                echo "Creating issue: $title"
+                issue_url="$(gh issue create \
+                  --repo "$REPO" \
+                  --title "$title" \
+                  --body "$body")"
+              fi
+
+              echo "Adding to project board..."
+
+              gh project item-add "$PROJECT_NUMBER" \
+                --owner "$OWNER" \
+                --url "$issue_url" \
+                || echo "Already added or failed."
+
+            fi
+
+          done < "$FILE"
