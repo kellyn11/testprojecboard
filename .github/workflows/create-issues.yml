@@ -1,4 +1,4 @@
-name: Create Issues from Markdown
+name: Create Issues and Sub-Issues from Markdown
 
 on:
   workflow_dispatch:
@@ -17,14 +17,14 @@ jobs:
       - name: Install GitHub CLI
         run: |
           sudo apt-get update
-          sudo apt-get install -y gh
+          sudo apt-get install -y gh jq
 
       - name: Authenticate GitHub CLI
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh auth status
 
-      - name: Create issues from stories.md
+      - name: Create parent issues and sub-issues
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -39,53 +39,139 @@ jobs:
             exit 1
           fi
 
-          awk '
-            BEGIN { RS=""; FS="\n" }
-            /^# Story [0-9]+:/ {
-              title=$1
-              sub(/^# Story [0-9]+: /, "", title)
+          get_issue_number_by_title() {
+            local title="$1"
+            gh issue list \
+              --repo "$REPO" \
+              --state all \
+              --search "\"$title\" in:title" \
+              --json number,title \
+              --jq ".[] | select(.title == \"$title\") | .number" | head -n 1
+          }
 
-              body=""
-              for (i=2; i<=NF; i++) {
-                body = body $i "\n"
-              }
+          get_issue_id_by_number() {
+            local number="$1"
+            gh api "repos/$REPO/issues/$number" --jq '.id'
+          }
 
-              print "TITLE::" title
-              print "BODY::" body
-              print "END_STORY::"
-            }
-          ' "$FILE" > /tmp/parsed_stories.txt
+          create_issue() {
+            local title="$1"
+            local body_file="$2"
+
+            gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "repos/$REPO/issues" \
+              -f title="$title" \
+              -F body@"$body_file"
+          }
+
+          link_sub_issue() {
+            local parent_number="$1"
+            local sub_issue_id="$2"
+
+            gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$REPO/issues/$parent_number/sub_issues" \
+              -f sub_issue_id="$sub_issue_id" >/dev/null
+          }
 
           current_title=""
           current_body=""
+          current_subissues=""
+          mode="body"
 
-          while IFS= read -r line; do
-            if [[ "$line" == TITLE::* ]]; then
-              current_title="${line#TITLE::}"
-              current_body=""
-            elif [[ "$line" == BODY::* ]]; then
-              current_body="${line#BODY::}"
-            elif [[ "$line" == END_STORY::* ]]; then
-              if [ -n "$current_title" ]; then
-                existing=$(gh issue list \
-                  --repo "$REPO" \
-                  --search "$current_title in:title" \
-                  --json title \
-                  --jq ".[] | select(.title == \"$current_title\") | .title" || true)
+          flush_story() {
+            if [ -z "$current_title" ]; then
+              return
+            fi
 
-                if [ -n "$existing" ]; then
-                  echo "Skipping existing issue: $current_title"
-                else
-                  echo "Creating issue: $current_title"
-                  gh issue create \
-                    --repo "$REPO" \
-                    --title "$current_title" \
-                    --body "$current_body"
-                fi
-              fi
+            echo "Processing parent issue: $current_title"
+
+            parent_number="$(get_issue_number_by_title "$current_title" || true)"
+
+            body_tmp="$(mktemp)"
+            printf "%s\n" "$current_body" > "$body_tmp"
+
+            if [ -z "$parent_number" ]; then
+              parent_number="$(
+                create_issue "$current_title" "$body_tmp" | jq -r '.number'
+              )"
+              echo "Created parent issue #$parent_number"
             else
-              if [ -n "$current_body" ]; then
-                current_body="${current_body}"$'\n'"$line"
+              echo "Parent issue already exists: #$parent_number"
+            fi
+
+            rm -f "$body_tmp"
+
+            if [ -n "$current_subissues" ]; then
+              while IFS= read -r sub_title; do
+                [ -z "$sub_title" ] && continue
+
+                echo "Processing sub-issue: $sub_title"
+
+                sub_number="$(get_issue_number_by_title "$sub_title" || true)"
+
+                sub_body_tmp="$(mktemp)"
+                printf "Child of: #%s\n\nCreated automatically from %s\n" "$parent_number" "$current_title" > "$sub_body_tmp"
+
+                if [ -z "$sub_number" ]; then
+                  sub_number="$(
+                    create_issue "$sub_title" "$sub_body_tmp" | jq -r '.number'
+                  )"
+                  echo "Created sub-issue #$sub_number"
+                else
+                  echo "Sub-issue already exists: #$sub_number"
+                fi
+
+                rm -f "$sub_body_tmp"
+
+                sub_id="$(get_issue_id_by_number "$sub_number")"
+
+                if gh api \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2026-03-10" \
+                  "repos/$REPO/issues/$parent_number/sub_issues" \
+                  --jq '.[].id' 2>/dev/null | grep -qx "$sub_id"; then
+                  echo "Sub-issue already linked to parent"
+                else
+                  link_sub_issue "$parent_number" "$sub_id"
+                  echo "Linked sub-issue #$sub_number -> parent #$parent_number"
+                fi
+              done <<< "$current_subissues"
+            fi
+
+            current_title=""
+            current_body=""
+            current_subissues=""
+            mode="body"
+          }
+
+          while IFS= read -r line || [ -n "$line" ]; do
+            if [[ "$line" =~ ^#\ Story\ [0-9]+:\  ]]; then
+              flush_story
+              current_title="${line#\# Story [0-9]: }"
+              current_title="$(echo "$line" | sed -E 's/^# Story [0-9]+: //')"
+              mode="body"
+              continue
+            fi
+
+            if [[ "$line" == "Sub-Issues:" ]]; then
+              mode="subissues"
+              continue
+            fi
+
+            if [[ "$mode" == "body" ]]; then
+              current_body+="$line"$'\n'
+            elif [[ "$mode" == "subissues" ]]; then
+              if [[ "$line" =~ ^-\  ]]; then
+                current_subissues+="${line#- }"$'\n'
+              elif [[ -n "${line// /}" ]]; then
+                current_subissues+="$line"$'\n'
               fi
             fi
-          done < /tmp/parsed_stories.txt
+          done < "$FILE"
+
+          flush_story
