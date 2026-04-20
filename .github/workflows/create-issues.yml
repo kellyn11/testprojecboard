@@ -74,6 +74,7 @@ jobs:
             gh api \
               --method POST \
               -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
               "repos/$REPO/issues/$parent_number/sub_issues" \
               -f sub_issue_id="$sub_issue_id" >/dev/null
           }
