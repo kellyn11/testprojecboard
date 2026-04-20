@@ -11,27 +11,34 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Install Pandoc
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc
 
+      - name: Show Input Files
+        run: |
+          echo "=== INPUT FOLDER ==="
+          ls -R input || true
+
       - name: Convert DOCX to Markdown
         run: |
           mkdir -p output
-          pandoc input/stories.docx -t markdown -o output/stories.md
+          rm -f output/stories.md
+          pandoc input/stories.docx -t markdown_strict -o output/stories.md
 
-      - name: Show converted output
+      - name: Show Output File
         run: |
-          echo "=== output/stories.md ==="
+          echo "=== GENERATED stories.md ==="
           cat output/stories.md || true
 
-      - name: Commit converted markdown
+      - name: Commit Updated Markdown
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add output/stories.md
-          git commit -m "Update stories.md from stories.docx" || echo "No changes to commit"
+          git commit -m "Update stories.md from DOCX" || echo "No changes to commit"
           git push
