@@ -1,4 +1,4 @@
-name: Create Issues from Table Markdown
+name: Create Issues + Add to Project Board
 
 on:
   workflow_dispatch:
@@ -19,81 +19,62 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gh
 
-      - name: Authenticate GitHub CLI
+      - name: Authenticate
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: gh auth status
 
-      - name: Create issues from markdown table
+      - name: Create Issues
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           REPO: ${{ github.repository }}
-        shell: bash
+          OWNER: kellyn11
+          PROJECT_NUMBER: 2
         run: |
-          set -euo pipefail
-
           FILE="output/stories.md"
 
           if [ ! -f "$FILE" ]; then
-            echo "Missing $FILE"
+            echo "stories.md not found"
             exit 1
           fi
 
-          current_section=""
+          while IFS= read -r line
+          do
+            if [[ "$line" =~ ^\|[[:space:]]*[0-9]+[[:space:]]*\| ]]; then
 
-          while IFS= read -r line || [ -n "$line" ]; do
-            line="${line%$'\r'}"
-            trimmed="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+              row=$(echo "$line" | sed 's/^|//;s/|$//')
 
-            # Capture section headings like "2.1 User Management"
-            if [[ "$trimmed" =~ ^[0-9]+\.[0-9]+[[:space:]]+ ]]; then
-              current_section="$trimmed"
-              echo "Section: $current_section"
-              continue
-            fi
+              sn=$(echo "$row" | cut -d'|' -f1 | xargs)
+              story=$(echo "$row" | cut -d'|' -f2 | xargs)
+              ac=$(echo "$row" | cut -d'|' -f3 | xargs)
 
-            # Match markdown table rows:
-            # | 1 | As a user... | AC1... |
-            if [[ "$trimmed" =~ ^\|[[:space:]]*[0-9]+[[:space:]]*\| ]]; then
-              row="$(echo "$trimmed" | sed 's/^|//;s/|$//')"
-
-              sn="$(echo "$row" | cut -d'|' -f1 | xargs)"
-              story="$(echo "$row" | cut -d'|' -f2 | xargs)"
-              ac="$(echo "$row" | cut -d'|' -f3- | sed 's/^ *//;s/ *$//')"
-
-              # Skip header rows
-              if [[ "$sn" == "SN" || "$sn" == "---" || -z "$story" ]]; then
+              if [[ "$sn" == "SN" ]]; then
                 continue
               fi
 
-              title="US${sn} - $(echo "$story" | sed -E 's/^As an? [^,]+, I want to //; s/ so that .*//; s/\.$//')"
+              title="US$sn"
 
-              body=$(cat <<EOF
-          **Section:** $current_section
-
-          **User Story**
-          $story
-
-          **Acceptance Criteria**
-          $ac
-          EOF
-          )
+             body=$(printf "Story:\n%s\n\nAcceptance Criteria:\n%s\n" "$story" "$ac")
 
               existing=$(gh issue list \
                 --repo "$REPO" \
                 --state all \
-                --search "\"US${sn} -\" in:title" \
-                --json number,title \
-                --jq ".[] | select(.title | startswith(\"US${sn} -\")) | .number" || true)
+                --search "$title in:title" \
+                --json title \
+                --jq '.[].title' || true)
 
-              if [ -n "$existing" ]; then
-                echo "Skipping existing issue: $title"
+              if [[ "$existing" == *"$title"* ]]; then
+                echo "Issue exists: $title"
               else
-                echo "Creating issue: $title"
-                gh issue create \
+                issue_url=$(gh issue create \
                   --repo "$REPO" \
                   --title "$title" \
-                  --body "$body"
+                  --body "$body")
+
+                gh project item-add "$PROJECT_NUMBER" \
+                  --owner "$OWNER" \
+                  --url "$issue_url" || true
               fi
+
             fi
           done < "$FILE"
