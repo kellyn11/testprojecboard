@@ -57,12 +57,15 @@ jobs:
           create_issue() {
             local title="$1"
             local body_file="$2"
+
+            body_content="$(cat "$body_file")"
+
             gh api \
               --method POST \
               -H "Accept: application/vnd.github+json" \
               "repos/$REPO/issues" \
               -f title="$title" \
-              -F body@"$body_file"
+              -f body="$body_content"
           }
 
           link_sub_issue() {
@@ -147,7 +150,6 @@ jobs:
             line="${line%$'\r'}"
             line="${line%\\}"
 
-            # Trim leading spaces for matching
             trimmed="$(echo "$line" | sed -E 's/^[[:space:]]+//')"
 
             if [[ "$trimmed" =~ ^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+ ]]; then
