@@ -86,13 +86,6 @@ Acceptance Criteria:
 
 -   Order confirmation shown
 
-    Sub-Issues:\
-    SUB: Build Shipping Form\
-    SUB: Integrate Payment Gateway\
-    SUB: Generate Order Record\
-    SUB: Show Confirmation Page\
-    SUB: Write Checkout Tests
-
 # Story 8: View Order History
 
 As a user, I can view past orders so that I can track purchases.
@@ -118,3 +111,11 @@ Acceptance Criteria:
 -   Password
 
 -   Email
+
+# Story 10: Logged out
+
+As a user, I want to log out to exit from my accounts.
+
+Acceptance Criteria:
+
+-   Validation to confirm logging out
