@@ -1,4 +1,4 @@
-name: Create Issues from Markdown
+name: Create Issues from Table Markdown
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh auth status
 
-      - name: Create issues from stories.md
+      - name: Create issues from markdown table
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -39,53 +39,61 @@ jobs:
             exit 1
           fi
 
-          awk '
-            BEGIN { RS=""; FS="\n" }
-            /^# Story [0-9]+:/ {
-              title=$1
-              sub(/^# Story [0-9]+: /, "", title)
+          current_section=""
 
-              body=""
-              for (i=2; i<=NF; i++) {
-                body = body $i "\n"
-              }
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            trimmed="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
-              print "TITLE::" title
-              print "BODY::" body
-              print "END_STORY::"
-            }
-          ' "$FILE" > /tmp/parsed_stories.txt
+            # Capture section headings like "2.1 User Management"
+            if [[ "$trimmed" =~ ^[0-9]+\.[0-9]+[[:space:]]+ ]]; then
+              current_section="$trimmed"
+              echo "Section: $current_section"
+              continue
+            fi
 
-          current_title=""
-          current_body=""
+            # Match markdown table rows:
+            # | 1 | As a user... | AC1... |
+            if [[ "$trimmed" =~ ^\|[[:space:]]*[0-9]+[[:space:]]*\| ]]; then
+              row="$(echo "$trimmed" | sed 's/^|//;s/|$//')"
 
-          while IFS= read -r line; do
-            if [[ "$line" == TITLE::* ]]; then
-              current_title="${line#TITLE::}"
-              current_body=""
-            elif [[ "$line" == BODY::* ]]; then
-              current_body="${line#BODY::}"
-            elif [[ "$line" == END_STORY::* ]]; then
-              if [ -n "$current_title" ]; then
-                existing=$(gh issue list \
-                  --repo "$REPO" \
-                  --search "$current_title in:title" \
-                  --json title \
-                  --jq ".[] | select(.title == \"$current_title\") | .title" || true)
+              sn="$(echo "$row" | cut -d'|' -f1 | xargs)"
+              story="$(echo "$row" | cut -d'|' -f2 | xargs)"
+              ac="$(echo "$row" | cut -d'|' -f3- | sed 's/^ *//;s/ *$//')"
 
-                if [ -n "$existing" ]; then
-                  echo "Skipping existing issue: $current_title"
-                else
-                  echo "Creating issue: $current_title"
-                  gh issue create \
-                    --repo "$REPO" \
-                    --title "$current_title" \
-                    --body "$current_body"
-                fi
+              # Skip header rows
+              if [[ "$sn" == "SN" || "$sn" == "---" || -z "$story" ]]; then
+                continue
               fi
-            else
-              if [ -n "$current_body" ]; then
-                current_body="${current_body}"$'\n'"$line"
+
+              title="US${sn} - $(echo "$story" | sed -E 's/^As an? [^,]+, I want to //; s/ so that .*//; s/\.$//')"
+
+              body=$(cat <<EOF
+          **Section:** $current_section
+
+          **User Story**
+          $story
+
+          **Acceptance Criteria**
+          $ac
+          EOF
+          )
+
+              existing=$(gh issue list \
+                --repo "$REPO" \
+                --state all \
+                --search "\"US${sn} -\" in:title" \
+                --json number,title \
+                --jq ".[] | select(.title | startswith(\"US${sn} -\")) | .number" || true)
+
+              if [ -n "$existing" ]; then
+                echo "Skipping existing issue: $title"
+              else
+                echo "Creating issue: $title"
+                gh issue create \
+                  --repo "$REPO" \
+                  --title "$title" \
+                  --body "$body"
               fi
             fi
-          done < /tmp/parsed_stories.txt
+          done < "$FILE"
