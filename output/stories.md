@@ -97,3 +97,17 @@ Acceptance Criteria:
 -   Order details view available
 
 -   Statuses displayed
+
+# Story 9: View User
+
+As a user, I can view all accounts so that I can track the accounts.
+
+Acceptance Criteria:
+
+-   Email validation is enforced
+
+-   User listed with their name
+
+-   Password
+
+-   Email
