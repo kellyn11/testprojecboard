@@ -147,20 +147,25 @@ jobs:
             line="${line%$'\r'}"
             line="${line%\\}"
 
-            if [[ "$line" =~ ^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+ ]]; then
+            # Trim leading spaces for matching
+            trimmed="$(echo "$line" | sed -E 's/^[[:space:]]+//')"
+
+            if [[ "$trimmed" =~ ^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+ ]]; then
               flush_story
-              current_title="$(echo "$line" | sed -E 's/^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+//')"
+              current_title="$(echo "$trimmed" | sed -E 's/^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+//')"
               mode="body"
               continue
             fi
 
-            if [[ "$line" =~ ^Sub-Issues: ]]; then
+            if [[ "$trimmed" =~ ^Sub-Issues: ]]; then
+              echo "Found Sub-Issues section for: $current_title"
               mode="subissues"
               continue
             fi
 
-            if [[ "$mode" == "subissues" && "$line" =~ ^SUB:[[:space:]]+ ]]; then
-              sub_title="$(echo "$line" | sed -E 's/^SUB:[[:space:]]+//')"
+            if [[ "$mode" == "subissues" && "$trimmed" =~ ^SUB:[[:space:]]+ ]]; then
+              sub_title="$(echo "$trimmed" | sed -E 's/^SUB:[[:space:]]+//')"
+              echo "Found sub-issue line: $sub_title"
               current_subissues+="$sub_title"$'\n'
               continue
             fi
