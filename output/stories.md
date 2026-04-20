@@ -1,121 +1,126 @@
-*Sample backlog for testing Pandoc → GitHub workflow*
+2\. Functional Requirements
 
-# Story 1: Create Account
+2.1 User Management
 
-As a user, I can create an account so that I can access personalized
-features.
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>SN</th>
+<th>User Stories</th>
+<th>Acceptance Criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>As a user, I want to create an account so that I can access
+personalized features.</td>
+<td>AC1: Enter name/email/password<br />
+AC2: Email validation<br />
+AC3: Success message</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>As a user, I want to log in so that I can access my account.</td>
+<td>AC1: Valid login<br />
+AC2: Invalid login error<br />
+AC3: Remember me</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>As a user, I want to reset my password so that I can regain
+access.</td>
+<td>AC1: Reset email sent<br />
+AC2: Secure token<br />
+AC3: New password saved</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>As a user, I want to update my profile so that my details stay
+current.</td>
+<td>AC1: Edit name<br />
+AC2: Edit contact info<br />
+AC3: Save confirmation</td>
+</tr>
+<tr class="odd">
+<td>9</td>
+<td>As an admin, I want to view user accounts so that I can manage
+users.</td>
+<td>AC1: User list<br />
+AC2: Search users<br />
+AC3: Status visible</td>
+</tr>
+<tr class="even">
+<td>10</td>
+<td>As a user, I want to log out so that I can securely exit my
+account.</td>
+<td>AC1: Session ended<br />
+AC2: Redirect to login<br />
+AC3: Cannot access protected pages</td>
+</tr>
+</tbody>
+</table>
 
-Acceptance Criteria:
+2.2 Shopping
 
--   User can enter name, email, password
-
--   Email validation is enforced
-
--   Success message displayed
-
-# Story 2: Log In
-
-As a user, I can log in so that I can access my account.
-
-Acceptance Criteria:
-
--   Valid credentials allow login
-
--   Invalid credentials show error
-
--   Remember me option available
-
-# Story 3: Reset Password
-
-As a user, I can reset my password so that I can regain access.
-
-Acceptance Criteria:
-
--   Reset link sent to email
-
--   Link expires after 30 minutes
-
--   User can set a new password
-
-# Story 4: Update Profile
-
-As a user, I can update my profile so that my information stays current.
-
-Acceptance Criteria:
-
--   User can edit name and phone
-
--   Changes save successfully
-
--   Validation errors are shown
-
-# Story 5: Browse Products
-
-As a user, I can browse products so that I can find items to buy.
-
-Acceptance Criteria:
-
--   Products listed with name and price
-
--   Search by keyword
-
--   Filter by category
-
-# Story 6: Add to Cart
-
-As a user, I can add items to cart so that I can purchase multiple
-items.
-
-Acceptance Criteria:
-
--   Quantity can be adjusted
-
--   Cart total updates
-
--   Items persist during session
-
-# Story 7: Checkout
-
-As a user, I can checkout so that I can complete my purchase.
-
-Acceptance Criteria:
-
--   Shipping details captured
-
--   Payment processed
-
--   Order confirmation shown
-
-# Story 8: View Order History
-
-As a user, I can view past orders so that I can track purchases.
-
-Acceptance Criteria:
-
--   Orders listed by date
-
--   Order details view available
-
--   Statuses displayed
-
-# Story 9: View User
-
-As a user, I can view all accounts so that I can track the accounts.
-
-Acceptance Criteria:
-
--   Email validation is enforced
-
--   User listed with their name
-
--   Password
-
--   Email
-
-# Story 10: Logged out
-
-As a user, I want to log out to exit from my accounts.
-
-Acceptance Criteria:
-
--   Validation to confirm logging out
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>SN</th>
+<th>User Stories</th>
+<th>Acceptance Criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>5</td>
+<td>As a user, I want to browse products so that I can find items to
+buy.</td>
+<td>AC1: Product list<br />
+AC2: Search available<br />
+AC3: Category filter</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>As a user, I want to add items to cart so that I can purchase
+multiple items.</td>
+<td>AC1: Add item<br />
+AC2: Quantity update<br />
+AC3: Total updates</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td>As a user, I want to checkout so that I can complete my
+purchase.</td>
+<td>AC1: Shipping captured<br />
+AC2: Payment processed<br />
+AC3: Confirmation shown</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td>As a user, I want to view past orders so that I can track
+purchases.</td>
+<td>AC1: Orders listed<br />
+AC2: Detail view<br />
+AC3: Status shown</td>
+</tr>
+<tr class="odd">
+<td>11</td>
+<td>As a user, i want to search for past orders so I can find the
+purchase easily.</td>
+<td>AC1: Search by orders listed<br />
+AC2: Search by detail view<br />
+AC3: Search by status shown</td>
+</tr>
+</tbody>
+</table>
