@@ -86,12 +86,6 @@ Acceptance Criteria:
 
 -   Order confirmation shown
 
-    Sub-Issues:\
-    SUB: Build Shipping Form\
-    SUB: Integrate Payment Gateway\
-    SUB: Generate Order Record\
-    SUB: Show Confirmation Page\
-    SUB: Write Checkout Tests
 
 # Story 8: View Order History
 
