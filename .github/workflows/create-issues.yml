@@ -144,11 +144,9 @@ jobs:
           }
 
           while IFS= read -r line || [ -n "$line" ]; do
-            # remove trailing backslashes and trim carriage returns
-            line="${line%\\}"
             line="${line%$'\r'}"
+            line="${line%\\}"
 
-            # heading: "Story 7: Checkout" OR "# Story 7: Checkout"
             if [[ "$line" =~ ^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+ ]]; then
               flush_story
               current_title="$(echo "$line" | sed -E 's/^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+//')"
@@ -156,21 +154,19 @@ jobs:
               continue
             fi
 
-            # switch into sub-issue mode
             if [[ "$line" =~ ^Sub-Issues: ]]; then
               mode="subissues"
               continue
             fi
 
+            if [[ "$mode" == "subissues" && "$line" =~ ^SUB:[[:space:]]+ ]]; then
+              sub_title="$(echo "$line" | sed -E 's/^SUB:[[:space:]]+//')"
+              current_subissues+="$sub_title"$'\n'
+              continue
+            fi
+
             if [[ "$mode" == "body" ]]; then
               current_body+="$line"$'\n'
-            else
-              # accept -, *, or o bullets
-              clean="$(echo "$line" | sed -E 's/^[[:space:]]*[-*o][[:space:]]+//')"
-              clean="$(echo "$clean" | sed 's/[[:space:]]*$//')"
-              if [ -n "$clean" ]; then
-                current_subissues+="$clean"$'\n'
-              fi
             fi
           done < "$FILE"
 
