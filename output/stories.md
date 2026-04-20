@@ -86,6 +86,13 @@ Acceptance Criteria:
 
 -   Order confirmation shown
 
+    Sub-Issues:\
+    - Build Shipping Form\
+    - Integrate Payment Gateway\
+    - Generate Order Record\
+    - Show Confirmation Page\
+    - Write Checkout Tests
+
 # Story 8: View Order History
 
 As a user, I can view past orders so that I can track purchases.
