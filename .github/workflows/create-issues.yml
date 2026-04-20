@@ -57,7 +57,6 @@ jobs:
           create_issue() {
             local title="$1"
             local body_file="$2"
-
             gh api \
               --method POST \
               -H "Accept: application/vnd.github+json" \
@@ -69,11 +68,9 @@ jobs:
           link_sub_issue() {
             local parent_number="$1"
             local sub_issue_id="$2"
-
             gh api \
               --method POST \
               -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2026-03-10" \
               "repos/$REPO/issues/$parent_number/sub_issues" \
               -f sub_issue_id="$sub_issue_id" >/dev/null
           }
@@ -130,12 +127,9 @@ jobs:
 
                 sub_id="$(get_issue_id_by_number "$sub_number")"
 
-                if gh api \
-                  -H "Accept: application/vnd.github+json" \
-                  -H "X-GitHub-Api-Version: 2026-03-10" \
-                  "repos/$REPO/issues/$parent_number/sub_issues" \
-                  --jq '.[].id' 2>/dev/null | grep -qx "$sub_id"; then
-                  echo "Sub-issue already linked to parent"
+                already_linked="$(gh api "repos/$REPO/issues/$parent_number/sub_issues" --jq '.[].id' 2>/dev/null || true)"
+                if echo "$already_linked" | grep -qx "$sub_id"; then
+                  echo "Sub-issue already linked"
                 else
                   link_sub_issue "$parent_number" "$sub_id"
                   echo "Linked sub-issue #$sub_number -> parent #$parent_number"
@@ -150,26 +144,32 @@ jobs:
           }
 
           while IFS= read -r line || [ -n "$line" ]; do
-            if [[ "$line" =~ ^#\ Story\ [0-9]+:\  ]]; then
+            # remove trailing backslashes and trim carriage returns
+            line="${line%\\}"
+            line="${line%$'\r'}"
+
+            # heading: "Story 7: Checkout" OR "# Story 7: Checkout"
+            if [[ "$line" =~ ^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+ ]]; then
               flush_story
-              current_title="${line#\# Story [0-9]: }"
-              current_title="$(echo "$line" | sed -E 's/^# Story [0-9]+: //')"
+              current_title="$(echo "$line" | sed -E 's/^#?[[:space:]]*Story[[:space:]]+[0-9]+:[[:space:]]+//')"
               mode="body"
               continue
             fi
 
-            if [[ "$line" == "Sub-Issues:" ]]; then
+            # switch into sub-issue mode
+            if [[ "$line" =~ ^Sub-Issues: ]]; then
               mode="subissues"
               continue
             fi
 
             if [[ "$mode" == "body" ]]; then
               current_body+="$line"$'\n'
-            elif [[ "$mode" == "subissues" ]]; then
-              if [[ "$line" =~ ^-\  ]]; then
-                current_subissues+="${line#- }"$'\n'
-              elif [[ -n "${line// /}" ]]; then
-                current_subissues+="$line"$'\n'
+            else
+              # accept -, *, or o bullets
+              clean="$(echo "$line" | sed -E 's/^[[:space:]]*[-*o][[:space:]]+//')"
+              clean="$(echo "$clean" | sed 's/[[:space:]]*$//')"
+              if [ -n "$clean" ]; then
+                current_subissues+="$clean"$'\n'
               fi
             fi
           done < "$FILE"
