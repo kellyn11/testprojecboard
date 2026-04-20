@@ -87,11 +87,11 @@ Acceptance Criteria:
 -   Order confirmation shown
 
     Sub-Issues:\
-    - Build Shipping Form\
-    - Integrate Payment Gateway\
-    - Generate Order Record\
-    - Show Confirmation Page\
-    - Write Checkout Tests
+    SUB: Build Shipping Form\
+    SUB: Integrate Payment Gateway\
+    SUB: Generate Order Record\
+    SUB: Show Confirmation Page\
+    SUB: Write Checkout Tests
 
 # Story 8: View Order History
 
