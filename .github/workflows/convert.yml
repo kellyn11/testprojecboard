@@ -23,11 +23,15 @@ jobs:
           mkdir -p output
           pandoc input/stories.docx -t markdown -o output/stories.md
 
+      - name: Show converted output
+        run: |
+          echo "=== output/stories.md ==="
+          cat output/stories.md || true
+
       - name: Commit converted markdown
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-
           git add output/stories.md
           git commit -m "Update stories.md from stories.docx" || echo "No changes to commit"
           git push
