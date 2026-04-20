@@ -112,7 +112,7 @@ Acceptance Criteria:
 
 -   Email
 
-# Story 20: Logged Out
+# Story 10: Logged Out
 
 As a user, I can log out so that I can exit from my account.
 
